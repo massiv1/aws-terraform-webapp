@@ -1,19 +1,17 @@
 terraform {
   required_providers {
-    aws = { /* this segment of our code emphasizes the pluggins that would be useful for terraform 
-                                                to understand our code so it can be translated back to AWS resources */
+    aws = { 
       source  = "hashicorp/aws"
       version = "~> 5.0"
     }
   }
 }
 
-provider "aws" { /* this segment would be useful to indicate what region of deployment for our web application */
+provider "aws" { 
   region = "eu-central-1"
 }
 
-resource "aws_vpc" "main" { /* this segment would be useful for our initial vpc configuration
-                                            it would be allocated with the subnet of /16*/
+resource "aws_vpc" "main" { 
   cidr_block           = "10.0.0.0/16"
   enable_dns_support   = true
   enable_dns_hostnames = true
@@ -23,9 +21,7 @@ resource "aws_vpc" "main" { /* this segment would be useful for our initial vpc 
   }
 }
 
-resource "aws_subnet" "public1" { /*this segment is our initial configuration of our public subnets with a cidr_block of /24 which fits within
-                                            the capacity of our vpc cloud space, we also assigned an automated IP address assigner which is useful for inbound data
-                                            for the outside world to communicate with our public server. (public ip address mapping is only for public subnets) */
+resource "aws_subnet" "public1" { 
   vpc_id                  = aws_vpc.main.id
   cidr_block              = "10.0.0.0/24"
   availability_zone       = "eu-central-1a"
@@ -42,7 +38,7 @@ resource "aws_subnet" "public2" {
   vpc_id                  = aws_vpc.main.id
   cidr_block              = "10.0.1.0/24"
   availability_zone       = "eu-central-1b"
-  map_public_ip_on_launch = true
+  map_public_ip_on_launch = true        
 
   tags = {
     Name = "public-subnet-2"
@@ -94,8 +90,7 @@ resource "aws_subnet" "isolated2" {
   }
 }
 
-resource "aws_internet_gateway" "igw" {     /*this segment of our code emphasizes our internet gateway creation this is the front-door of our vpc to be able 
-                                             to connect to the internet with the aide of routing tables */
+resource "aws_internet_gateway" "igw" {     
   vpc_id = aws_vpc.main.id
 
   tags = {
@@ -103,8 +98,7 @@ resource "aws_internet_gateway" "igw" {     /*this segment of our code emphasize
   }
 }
 
-resource "aws_eip" "nat_eip" {          /*our elastic ip address is used for the temporary conversion of our private ip address to this ip address assigned
-                                            by aws which is used to connect our private subent to the internet via the nat gateway. */
+resource "aws_eip" "nat_eip" {         
   domain = "vpc"
 
   tags = {
@@ -112,8 +106,7 @@ resource "aws_eip" "nat_eip" {          /*our elastic ip address is used for the
   }
 }
 
-resource "aws_nat_gateway" "nat_gw" {       /*assignment of our nat gateway onto our public subnet that takes up the elastic ip address which our private
-                                                subnet will convert to */
+resource "aws_nat_gateway" "nat_gw" {       
   allocation_id = aws_eip.nat_eip.id
   subnet_id     = aws_subnet.public1.id
 
@@ -121,12 +114,10 @@ resource "aws_nat_gateway" "nat_gw" {       /*assignment of our nat gateway onto
     Name = "nat-gateway"
   }
 
-  depends_on = [aws_internet_gateway.igw]  /* install the igw, before the eip and lastly the nat gateway */
+  depends_on = [aws_internet_gateway.igw]  
 }
 
-resource "aws_route_table" "publicroute_table" {      /*traffic egress, configuring routing tables for network packets to be sent back 
-                                                      to users via an internet gateway regular users everywhere/anywhere this is illustrated
-                                                      by the cidr block 0.0.0.0/0 */
+resource "aws_route_table" "publicroute_table" {      
 
   vpc_id = aws_vpc.main.id
 
@@ -140,15 +131,12 @@ resource "aws_route_table" "publicroute_table" {      /*traffic egress, configur
   }
 }
 
-resource "aws_route_table_association" "publicrt1" {        /* tie the subnet to the route table association so that we understand the scope the routing
-                                                                table applies to */
+resource "aws_route_table_association" "publicrt1" {        
   subnet_id = aws_subnet.public1.id
   route_table_id = aws_route_table.publicroute_table.id
 }
 
-resource "aws_route_table" "privateroute_table" {         /* initiating a routing table for our private subnet where we configure 
-                                                            the route in such a way that it communicates with the internet via the 
-                                                            NAT gateway (for the sake of downloads, patches etc) */
+resource "aws_route_table" "privateroute_table" {         
   
   vpc_id = aws_vpc.main.id
 
@@ -171,10 +159,7 @@ resource "aws_security_group" "alb_sg" {
 
   vpc_id = aws_vpc.main.id
 
-  ingress {                                                 /*as for initiating the inbound rules for we need to specify the 
-                                                            start to end port for web traffic the start and end port are identical,
-                                                            we also need to specify the protocol and lastly the cidr_blocks which 
-                                                            references where the data is incoming from into our alb */
+  ingress {                                                
 
     description = "HTTP from internet"                                                       
     from_port = 80
@@ -203,8 +188,7 @@ resource "aws_security_group" "ec2_sg" {
   }
 
   ingress{
-    description = "Network packets from our SSH bastion host"           /* when configuring our network packets incoming from our basation host to securely login to
-                                                                          our ec2 platforms we use port 22 which is used for secure shell solely */
+    description = "Network packets from our SSH bastion host"           
     from_port = 22
     to_port = 22
     protocol = "tcp"
@@ -230,7 +214,7 @@ resource "aws_security_group" "bastion_host"{
   vpc_id = aws_vpc.main.id
 
   ingress{
-    description = "Network packets from our laptop"         /* indicate where the traffic is coming from the identifier would be our laptop's IP address */
+    description = "Network packets from our laptop"        
     from_port = 22
     to_port = 22
     protocol = "tcp"
@@ -243,7 +227,7 @@ resource "aws_security_group" "bastion_host"{
   }
 }
 
-resource "aws_security_group" "database_sg"{
+resource "aws_security_group" "database_sg"{                 
 
   vpc_id = aws_vpc.main.id
 
@@ -260,7 +244,7 @@ resource "aws_security_group" "database_sg"{
   }
 }
 
-resource "aws_security_group_rule" "alb_egress_to_ec2" {
+resource "aws_security_group_rule" "alb_egress_to_ec2" {          
   type                     = "egress"
   from_port                = 80
   to_port                  = 80
@@ -285,6 +269,12 @@ resource "aws_security_group_rule" "ec2_egress_to_db" {
   protocol                 = "tcp"
   security_group_id        = aws_security_group.ec2_sg.id
   source_security_group_id = aws_security_group.database_sg.id
+}
+
+resource "aws_launch_template" "ec2_initialization" {
+
+image_id = var.ami_id
+instance_type = var.instance_type
 }
 
 
